@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OFF-ROAD PRO — Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Oswald:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #1c1c1f; color: #e4e4e7; }
+        .btn-accent { background: #D4A017; color: #151518; transition: 0.2s; } 
+        .btn-accent:hover { background: #E6B325; }
+        .btn-accent:disabled { background: #3a3a42; color: #8a8a91; cursor: not-allowed; }
+        input, textarea, select { background: #1c1c1f; border: 1px solid #3a3a42; color: #e4e4e7; font-size: 14px; }
+        input:focus, textarea:focus, select:focus { border-color: #D4A017; outline: none; }
+        .icon-btn svg { stroke: #8a8a91; transition: stroke 0.2s; }
+        .icon-btn:hover svg { stroke: #D4A017; }
+    </style>
+</head>
+<body class="p-6">
+
+    <div id="auth" class="flex justify-center items-center h-screen">
+        <div class="bg-[#26262b] p-8 w-full max-w-md border border-[#3a3a42] border-t-4 border-t-[#D4A017] shadow-md rounded-lg">
+            <h2 class="text-xl mb-6 text-[#e4e4e7] uppercase tracking-wide">Вход в систему</h2>
+            <input type="email" id="email" placeholder="Email" class="w-full p-3 mb-4 border rounded">
+            <div class="relative mb-4">
+                <input type="password" id="pass" placeholder="Пароль" class="w-full p-3 border rounded pr-10">
+                <button type="button" onclick="togglePass()" id="pass-toggle-btn" class="icon-btn absolute right-3 top-1/2 -translate-y-1/2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+            </div>
+            <div id="login-error" class="text-red-500 text-sm mb-4 text-center hidden"></div>
+            <button type="button" id="btn-sign-in" class="btn-accent w-full p-3 font-bold uppercase rounded text-sm" onclick="signIn()">Войти</button>
+        </div>
+    </div>
+
+    <div id="panel" class="hidden max-w-6xl mx-auto">
+        <header class="flex justify-between items-center mb-6 bg-[#151518] p-4 rounded shadow border-b border-[#3a3a42]">
+            <h2 class="text-[#e4e4e7] font-bold tracking-wide text-sm">ADMIN PANEL</h2>
+            <div class="flex gap-2">
+                <a href="index.html" target="_blank" class="bg-[#26262b] text-[#D4A017] border border-[#D4A017] px-4 py-2 rounded font-bold uppercase text-xs hover:bg-[#3a3a42]">Открыть сайт ↗</a>
+                <button type="button" class="bg-[#3a3a42] text-[#e4e4e7] px-4 py-2 rounded font-bold uppercase text-xs hover:bg-[#4a4a52]" onclick="sb.auth.signOut().then(()=>location.reload())">Выйти</button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-1">
+                <div class="bg-[#26262b] p-6 border border-[#3a3a42] rounded-lg shadow-sm mb-6">
+                    <h3 class="text-[#e4e4e7] mb-4 border-l-4 border-[#D4A017] pl-2 font-bold uppercase tracking-wide text-sm" id="form-title">Добавить товар</h3>
+                    <input type="hidden" id="p-id">
+                    <input type="text" id="p-name" placeholder="Название" class="w-full p-2 mb-3 rounded">
+                    <label class="text-xs text-[#8a8a91] font-bold uppercase">Категория</label>
+                    <select id="p-category" class="w-full p-2 mb-3 border rounded">
+                        <option value="Вездеходы">Вездеходы</option>
+                        <option value="Допы">Доп. оборудование</option>
+                    </select>
+                    <input type="number" id="p-price" placeholder="Цена" class="w-full p-2 mb-3 rounded">
+                    <textarea id="p-desc" rows="3" placeholder="Описание" class="w-full p-2 mb-3 rounded"></textarea>
+                    <label class="text-xs text-[#8a8a91] font-bold uppercase">Характеристики</label><div id="specs-container" class="mb-2"></div>
+                    <button type="button" class="w-full border border-dashed border-[#3a3a42] text-[#8a8a91] p-2 rounded mb-4 text-xs hover:border-[#D4A017] hover:text-[#D4A017]" onclick="addRow('specs-container', ['label','value'])">+ Характеристика</button>
+                    <label class="text-xs text-[#8a8a91] font-bold uppercase">Двигатели</label><div id="eng-container" class="mb-2"></div>
+                    <button type="button" class="w-full border border-dashed border-[#3a3a42] text-[#8a8a91] p-2 rounded mb-4 text-xs hover:border-[#D4A017] hover:text-[#D4A017]" onclick="addRow('eng-container', ['name','price','desc'])">+ Двигатель</button>
+                    <label class="text-xs text-[#8a8a91] font-bold uppercase">Доп. опции</label><div id="opt-container" class="mb-2"></div>
+                    <button type="button" class="w-full border border-dashed border-[#3a3a42] text-[#8a8a91] p-2 rounded mb-4 text-xs hover:border-[#D4A017] hover:text-[#D4A017]" onclick="addRow('opt-container', ['name','price','desc'])">+ Опция</button>
+                    <input type="file" id="p-img" multiple class="mb-2 text-xs text-[#8a8a91]">
+                    <div id="img-status" class="text-xs text-[#8a8a91] mb-2"></div>
+                    <button type="button" id="btn-save-prod" class="btn-accent w-full p-2 font-bold uppercase rounded text-sm" onclick="saveProduct()">Сохранить</button>
+                    <button type="button" class="bg-[#3a3a42] w-full p-2 font-bold uppercase rounded mt-2 text-sm hover:bg-[#4a4a52] text-[#e4e4e7]" onclick="resetForm()">Очистить</button>
+                </div>
+
+                <div class="bg-[#26262b] p-6 border border-[#3a3a42] rounded-lg shadow-sm mb-6">
+                    <h3 class="text-[#e4e4e7] mb-4 border-l-4 border-[#D4A017] pl-2 font-bold uppercase tracking-wide text-sm">Добавить слайд</h3>
+                    <input type="text" id="s-title" placeholder="Заголовок" class="w-full p-2 mb-3 rounded">
+                    <input type="text" id="s-subtitle" placeholder="Подзаголовок" class="w-full p-2 mb-3 rounded">
+                    <input type="text" id="s-btn" placeholder="Текст кнопки (оставьте пустым, если без кнопки)" class="w-full p-2 mb-3 rounded">
+                    <label class="text-xs text-[#8a8a91] font-bold uppercase">Куда ведет кнопка</label>
+                    <select id="s-link" class="w-full p-2 mb-3 border rounded">
+                        <option value="catalog">В Каталог</option>
+                        <option value="home">На Главную</option>
+                        <option value="contacts">В Контакты</option>
+                    </select>
+                    <input type="file" id="s-img" accept="image/*" class="mb-2 text-xs text-[#8a8a91]">
+                    <button type="button" id="btn-save-slide" class="btn-accent w-full p-2 font-bold uppercase rounded text-sm" onclick="saveSlide()">Загрузить слайд</button>
+                </div>
+
+                <div class="bg-[#26262b] p-6 border border-[#3a3a42] rounded-lg shadow-sm mb-6">
+                    <h3 class="text-[#e4e4e7] mb-4 border-l-4 border-[#D4A017] pl-2 font-bold uppercase tracking-wide text-sm">Добавить проект</h3>
+                    <input type="text" id="pr-title" placeholder="Название проекта" class="w-full p-2 mb-3 rounded">
+                    <textarea id="pr-desc" rows="2" placeholder="Краткое описание" class="w-full p-2 mb-3 rounded"></textarea>
+                    <input type="file" id="pr-img" accept="image/*" class="mb-2 text-xs text-[#8a8a91]">
+                    <button type="button" id="btn-save-pr" class="btn-accent w-full p-2 font-bold uppercase rounded text-sm" onclick="saveProject()">Загрузить проект</button>
+                </div>
+
+                <div class="bg-[#26262b] p-6 border border-[#3a3a42] rounded-lg shadow-sm mb-6">
+                    <h3 class="text-[#e4e4e7] mb-4 border-l-4 border-[#D4A017] pl-2 font-bold uppercase tracking-wide text-sm">Добавить видео</h3>
+                    <input type="text" id="v-title" placeholder="Название" class="w-full p-2 mb-3 rounded">
+                    <input type="text" id="v-url" placeholder="Ссылка на YouTube/RuTube" class="w-full p-2 mb-3 rounded">
+                    <input type="file" id="v-img" accept="image/*" class="mb-2 text-xs text-[#8a8a91]">
+                    <button type="button" id="btn-save-vid" class="btn-accent w-full p-2 font-bold uppercase rounded text-sm" onclick="saveVideo()">Загрузить видео</button>
+                </div>
+
+                <div class="bg-[#26262b] p-6 border border-[#3a3a42] rounded-lg shadow-sm mb-6">
+                    <h3 class="text-[#e4e4e7] mb-4 border-l-4 border-[#D4A017] pl-2 font-bold uppercase tracking-wide text-sm">Инфо и Калькулятор</h3>
+                    <label class="text-xs text-[#8a8a91] font-bold uppercase">Блок 1</label>
+                    <input type="text" id="ci-b1-title" placeholder="Заголовок 1" class="w-full p-2 mb-2 rounded">
+                    <textarea id="ci-b1-text" rows="2" placeholder="Текст 1" class="w-full p-2 mb-3 rounded"></textarea>
+                    <label class="text-xs text-[#8a8a91] font-bold uppercase">Блок 2</label>
+                    <input type="text" id="ci-b2-title" placeholder="Заголовок 2" class="w-full p-2 mb-2 rounded">
+                    <textarea id="ci-b2-text" rows="2" placeholder="Текст 2" class="w-full p-2 mb-3 rounded"></textarea>
+                    <label class="text-xs text-[#8a8a91] font-bold uppercase">Блок 3</label>
+                    <input type="text" id="ci-b3-title" placeholder="Заголовок 3" class="w-full p-2 mb-2 rounded">
+                    <textarea id="ci-b3-text" rows="2" placeholder="Текст 3" class="w-full p-2 mb-3 rounded"></textarea>
+
+                    <hr class="border-[#3a3a42] my-4">
+                    <label class="text-xs text-[#D4A017] font-bold uppercase">Настройки калькулятора</label>
+                    <div class="grid grid-cols-3 gap-2 mt-2">
+                        <div><input type="number" id="ci-calc-initial" placeholder="Взнос %" class="w-full p-2 rounded"></div>
+                        <div><input type="number" id="ci-calc-rate" placeholder="Ставка %" class="w-full p-2 rounded"></div>
+                        <div><input type="number" id="ci-calc-term" placeholder="Срок (мес)" class="w-full p-2 rounded"></div>
+                    </div>
+                    <button type="button" id="btn-save-ci" class="btn-accent w-full p-2 font-bold uppercase rounded text-sm mt-4" onclick="saveCompanyInfo()">Сохранить</button>
+                </div>
+
+                <div class="bg-[#26262b] p-6 border border-[#3a3a42] rounded-lg shadow-sm">
+                    <h3 class="text-[#e4e4e7] mb-4 border-l-4 border-[#D4A017] pl-2 font-bold uppercase tracking-wide text-sm">Промокоды</h3>
+                    <div class="flex gap-2 mb-4">
+                        <input type="text" id="promo-code" placeholder="Код (например: SUMMER)" class="flex-1 p-2 rounded">
+                        <input type="number" id="promo-discount" placeholder="Скидка %" class="w-20 p-2 rounded">
+                        <button type="button" class="btn-accent p-2 rounded text-xs font-bold" onclick="addPromo()">+</button>
+                    </div>
+                    <div id="promo-list"></div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2">
+                <div class="bg-[#26262b] p-6 border border-[#3a3a42] rounded-lg shadow-sm mb-6">
+                    <h3 class="text-[#e4e4e7] mb-4 border-l-4 border-[#D4A017] pl-2 font-bold uppercase tracking-wide text-sm">Слайды на главной</h3>
+                    <div id="slide-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"><p class="text-[#8a8a91] text-sm">Загрузка...</p></div>
+                </div>
+                <div class="bg-[#26262b] p-6 border border-[#3a3a42] rounded-lg shadow-sm mb-6">
+                    <h3 class="text-[#e4e4e7] mb-4 border-l-4 border-[#D4A017] pl-2 font-bold uppercase tracking-wide text-sm">База товаров</h3>
+                    <div id="prod-list"><p class="text-[#8a8a91] text-sm">Загрузка...</p></div>
+                </div>
+                <div class="bg-[#26262b] p-6 border border-[#3a3a42] rounded-lg shadow-sm mb-6">
+                    <h3 class="text-[#e4e4e7] mb-4 border-l-4 border-[#D4A017] pl-2 font-bold uppercase tracking-wide text-sm">Выполненные проекты</h3>
+                    <div id="pr-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"><p class="text-[#8a8a91] text-sm">Загрузка...</p></div>
+                </div>
+                <div class="bg-[#26262b] p-6 border border-[#3a3a42] rounded-lg shadow-sm mb-6">
+                    <h3 class="text-[#e4e4e7] mb-4 border-l-4 border-[#D4A017] pl-2 font-bold uppercase tracking-wide text-sm">Видео галерея</h3>
+                    <div id="vid-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"><p class="text-[#8a8a91] text-sm">Загрузка...</p></div>
+                </div>
+                <div class="bg-[#26262b] p-6 border border-[#3a3a42] rounded-lg shadow-sm">
+                    <h3 class="text-[#e4e4e7] mb-4 border-l-4 border-[#D4A017] pl-2 font-bold uppercase tracking-wide text-sm">Заявки</h3>
+                    <div id="leads-list"><p class="text-[#8a8a91] text-sm">Загрузка...</p></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://icpngypgwebzniapblpc.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_vM6JBpCVX3jKL2j9J0Unsg_OIZNsy5z';
+        
+        let sb = null;
+        try {
+            if (typeof supabase !== 'undefined') sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            else showError("Библиотека не загрузилась.");
+        } catch (e) { showError("Критическая ошибка инициализации: " + e.message); }
+
+        function showError(msg) {
+            const errDiv = document.getElementById('login-error');
+            errDiv.innerText = msg; errDiv.classList.remove('hidden');
+        }
+
+        function togglePass() {
+            const inp = document.getElementById('pass');
+            const btn = document.getElementById('pass-toggle-btn');
+            if (inp.type === 'password') {
+                inp.type = 'text';
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+            } else {
+                inp.type = 'password';
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+            }
+        }
+
+        async function checkInitialAuth() {
+            if (!sb) return;
+            const { data: { session } } = await sb.auth.getSession();
+            if (session) {
+                document.getElementById('auth').classList.add('hidden');
+                document.getElementById('panel').classList.remove('hidden');
+                if (!window.dataLoaded) { loadData(); window.dataLoaded = true; }
+            }
+        }
+
+        if (sb) {
+            sb.auth.onAuthStateChange((event, session) => {
+                if (session) {
+                    document.getElementById('auth').classList.add('hidden');
+                    document.getElementById('panel').classList.remove('hidden');
+                    if (!window.dataLoaded) { loadData(); window.dataLoaded = true; }
+                } else {
+                    document.getElementById('auth').classList.remove('hidden');
+                    document.getElementById('panel').classList.add('hidden');
+                }
+            });
+        }
+
+        async function signIn() {
+            const btn = document.getElementById('btn-sign-in');
+            const errDiv = document.getElementById('login-error');
+            errDiv.innerText = ''; errDiv.classList.add('hidden');
+
+            if (!sb) { showError("БД не загрузилась!"); return; }
+            const email = document.getElementById('email').value.trim();
+            const pass = document.getElementById('pass').value.trim();
+
+            if (!email || !pass) { showError("Заполните email и пароль!"); return; }
+
+            btn.disabled = true; 
+            btn.innerText = "Проверка...";
+
+            try {
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error("Сервер не отвечает. Проверьте интернет или статус проекта в Supabase.")), 10000)
+                );
+
+                const authPromise = sb.auth.signInWithPassword({ email, password: pass });
+                
+                const { data, error } = await Promise.race([authPromise, timeoutPromise]);
+                
+                if (error) {
+                    showError("Ошибка входа: " + error.message);
+                    btn.disabled = false; 
+                    btn.innerText = "Войти";
+                } else if (data.user) {
+                    document.getElementById('auth').classList.add('hidden');
+                    document.getElementById('panel').classList.remove('hidden');
+                    if (!window.dataLoaded) { loadData(); window.dataLoaded = true; }
+                } else {
+                    showError("Неизвестная ошибка авторизации.");
+                    btn.disabled = false; 
+                    btn.innerText = "Войти";
+                }
+            } catch (e) {
+                showError("Критическая ошибка: " + e.message);
+                btn.disabled = false; 
+                btn.innerText = "Войти";
+            }
+        }
+
+        function compressImage(file) {
+            return new Promise((resolve, reject) => {
+                if (file.size > 20 * 1024 * 1024) return reject(new Error("Файл слишком большой"));
+                let r = new FileReader(); 
+                r.onload = e => {
+                    let img = new Image(); 
+                    img.onload = () => {
+                        let c = document.createElement('canvas'); 
+                        let w = img.width, h = img.height;
+                        if(w > 1920) { h = h * (1920 / w); w = 1920; }
+                        c.width = w; c.height = h; 
+                        c.getContext('2d').drawImage(img, 0, 0, w, h);
+                        c.toBlob(b => resolve(b), 'image/webp', 0.8);
+                    }; 
+                    img.src = e.target.result;
+                }; 
+                r.readAsDataURL(file);
+            });
+        }
+
+        function addRow(containerId, fields) {
+            const c = document.getElementById(containerId);
+            const div = document.createElement('div'); div.className = 'flex gap-2 mb-2';
+            fields.forEach(f => {
+                const inp = document.createElement('input'); inp.type = f === 'price' ? 'number' : 'text';
+                inp.placeholder = f.charAt(0).toUpperCase() + f.slice(1); inp.dataset.key = f; inp.className = 'flex-1 p-2 border rounded text-xs';
+                div.appendChild(inp);
+            });
+                      const btn = document.createElement('button'); btn.innerText = '✕'; btn.className = 'bg-[#3a3a42] text-[#e4e4e7] px-3 rounded text-xs'; btn.onclick = () => div.remove();
+            div.appendChild(btn); c.appendChild(div);
+        }
+
+        function getData(containerId, keys) {
+            const rows = document.getElementById(containerId).querySelectorAll('.flex');
+            let arr = []; rows.forEach(r => {
+                let obj = {}; let valid = false;
+                r.querySelectorAll('input').forEach(inp => { obj[inp.dataset.key] = inp.value; if(inp.value) valid = true; });
+                if(valid) { if(keys.includes('price')) obj.price = parseFloat(obj.price) || 0; arr.push(obj); }
+            }); return arr;
+        }
+
+        function fillData(containerId, data, keys) {
+            const c = document.getElementById(containerId); c.innerHTML = '';
+            if(!data) return; data.forEach(item => {
+                addRow(containerId, keys); const lastRow = c.lastChild;
+                lastRow.querySelectorAll('input').forEach(inp => inp.value = item[inp.dataset.key] || '');
+            });
+        }
+
+        function resetForm() {
+            document.getElementById('p-id').value = '';
+            document.querySelectorAll('#p-name, #p-price, #p-desc').forEach(el => el.value = '');
+            document.getElementById('p-category').value = 'Вездеходы';
+            document.getElementById('specs-container').innerHTML = '';
+            document.getElementById('eng-container').innerHTML = '';
+            document.getElementById('opt-container').innerHTML = '';
+            document.getElementById('img-status').innerText = '';
+                  document.getElementById('form-title').innerText = 'Добавить товар';
+        }
+
+        async function loadData() {
+            const { data: prods, error: pErr } = await sb.from('products').select('*').order('created_at', { ascending: false });
+            if (pErr) console.error("Products error", pErr);
+            document.getElementById('prod-list').innerHTML = prods && prods.length ? prods.map(p => `
+                <div class="flex justify-between items-center border-b border-[#3a3a42] py-3">
+                    <div class="flex items-center gap-3">
+                        <img src="${(p.gallery && p.gallery[0] ? p.gallery[0] : 'https://via.placeholder.com/60')}?width=60" class="w-10 h-10 object-cover rounded">
+                        <div>
+                            <b class="text-[#e4e4e7] text-sm">${p.name}</b><br>
+                            <span class="text-[#8a8a91] text-xs">${p.category || 'Вездеходы'} | <span class="text-[#D4A017]">${p.price} ₽</span></span>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="bg-[#3a3a42] text-[#e4e4e7] px-3 py-1 rounded text-xs font-bold hover:bg-[#4a4a52]" onclick="editProduct('${p.id}')">Изменить</button>
+                        <button class="bg-[#4a4a52] text-[#e4e4e7] px-3 py-1 rounded text-xs font-bold hover:bg-[#5a5a61]" onclick="deleteProduct('${p.id}', ${JSON.stringify(p.gallery)})">Удалить</button>
+                    </div>
+                </div>
+            `).join('') : '<p class="text-[#8a8a91] text-sm">Нет товаров</p>';
+
+            const { data: slides } = await sb.from('slides').select('*').order('created_at', { ascending: true });
+            document.getElementById('slide-list').innerHTML = slides && slides.length ? slides.map(s => `
+                <div class="bg-[#1c1c1f] p-3 rounded border border-[#3a3a42] flex gap-3">
+                    <img src="${s.image_url}?width=200" class="w-24 h-24 object-cover rounded">
+                    <div class="flex flex-col justify-between flex-1">
+                        <div>
+                            <b class="text-[#e4e4e7] text-sm block">${s.title || 'Без заголовка'}</b>
+                            <span class="text-[#8a8a91] text-xs">Кнопка: ${s.button_text || 'Нет'} -> ${s.button_link || 'catalog'}</span>
+                                                    </div>
+                        <button class="bg-[#4a4a52] text-[#e4e4e7] px-3 py-1 rounded text-xs font-bold hover:bg-[#5a5a61] w-fit" onclick="deleteSlide('${s.id}', '${s.image_url}')">Удалить</button>
+                    </div>
+                </div>
+            `).join('') : '<p class="text-[#8a8a91] text-sm">Нет слайдов</p>';
+
+            const { data: vids } = await sb.from('videos').select('*').order('created_at', { ascending: false });
+            document.getElementById('vid-list').innerHTML = vids && vids.length ? vids.map(v => `
+                <div class="bg-[#1c1c1f] p-3 rounded border border-[#3a3a42] flex gap-3">
+                    <img src="${(v.img_url || 'https://via.placeholder.com/200')}?width=200" class="w-24 h-24 object-cover rounded">
+                    <div class="flex flex-col justify-between flex-1">
+                        <b class="text-[#e4e4e7] text-sm">${v.title || 'Видео'}</b>
+                        <button class="bg-[#4a4a52] text-[#e4e4e7] px-3 py-1 rounded text-xs font-bold hover:bg-[#5a5a61] w-fit" onclick="deleteVideo('${v.id}', '${v.img_url}')">Удалить</button>
+                    </div>
+                </div>
+            `).join('') : '<p class="text-[#8a8a91] text-sm">Нет видео</p>';
+
+            const { data: leads } = await sb.from('leads').select('*').order('created_at', { ascending: false });
+            document.getElementById('leads-list').innerHTML = leads && leads.length ? leads.map(l => `
+                <div class="border-b border-[#3a3a42] py-3">
+                    <b class="text-[#e4e4e7] text-sm">${l.name} - ${l.phone}</b>
+                    <p class="text-xs text-[#8a8a91] mt-1 whitespace-pre-line">${l.details}</p>
+                </div>
+            `).join('') : '<p class="text-[#8a8a91] text-sm">Нет заявок</p>';
+
+            const { data: ci } = await sb.from('company_info').select('*').eq('id', 1).single();
+            if (ci) {
+                document.getElementById('ci-b1-title').value = ci.block1_title || '';
+                document.getElementById('ci-b1-text').value = ci.block1_text || '';
+                document.getElementById('ci-b2-title').value = ci.block2_title || '';
+                      document.getElementById('ci-b2-text').value = ci.block2_text || '';
+                document.getElementById('ci-b3-title').value = ci.block3_title || '';
+                document.getElementById('ci-b3-text').value = ci.block3_text || '';
+                document.getElementById('ci-calc-initial').value = ci.calc_initial || 20;
+                document.getElementById('ci-calc-rate').value = ci.calc_rate || 15;
+                document.getElementById('ci-calc-term').value = ci.calc_term || 36;
+            }
+
+            const { data: promos } = await sb.from('promocodes').select('*').order('created_at', { ascending: false });
+            document.getElementById('promo-list').innerHTML = promos && promos.length ? promos.map(p => `
+                <div class="flex justify-between items-center bg-[#1c1c1f] p-2 rounded border border-[#3a3a42] mb-2">
+                    <div><b class="text-[#D4A017] text-sm">${p.code}</b> <span class="text-[#8a8a91] text-xs">- ${p.discount_percent}%</span></div>
+                    <button class="bg-[#4a4a52] text-[#e4e4e7] px-2 py-1 rounded text-xs font-bold hover:bg-[#5a5a61]" onclick="deletePromo('${p.id}')">Удалить</button>
+                </div>
+            `).join('') : '<p class="text-[#8a8a91] text-xs">Промокодов нет</p>';
+
+            const { data: projects } = await sb.from('projects').select('*').order('created_at', { ascending: false });
+            document.getElementById('pr-list').innerHTML = projects && projects.length ? projects.map(p => `
+                <div class="bg-[#1c1c1f] p-3 rounded border border-[#3a3a42] flex gap-3">
+                    <img src="${p.image_url}?width=200" class="w-24 h-24 object-cover rounded">
+                    <div class="flex flex-col justify-between flex-1">
+                        <div>
+                            <b class="text-[#e4e4e7] text-sm block">${p.title}</b>
+                            <span class="text-[#8a8a91] text-xs line-clamp-2">${p.description || ''}</span>
+                        </div>
+                        <button class="bg-[#4a4a52] text-[#e4e4e7] px-3 py-1 rounded text-xs font-bold hover:bg-[#5a5a61] w-fit" onclick="deleteProject('${p.id}', '${p.image_url}')">Удалить</button>
+                    </div>
+                </div>
+            `).join('') : '<p class="text-[#8a8a91] text-sm">Нет проектов</p>';
+        }
+      
+        function editProduct(id) {
+            sb.from('products').select('*').eq('id', id).single().then(({ data }) => {
+                document.getElementById('p-id').value = data.id;
+                document.getElementById('p-name').value = data.name;
+                document.getElementById('p-category').value = data.category || 'Вездеходы';
+                document.getElementById('p-price').value = data.price;
+                document.getElementById('p-desc').value = data.description;
+                fillData('specs-container', data.specs, ['label','value']);
+                fillData('eng-container', data.engines, ['name','price','desc']);
+                fillData('opt-container', data.options, ['name','price','desc']);
+                document.getElementById('img-status').innerText = 'Фото сохранены. Выберите новые, чтобы заменить.';
+                document.getElementById('form-title').innerText = 'Редактирование: ' + data.name;
+                window.scrollTo(0, 0);
+            });
+        }
+
+        async function deleteProduct(id, urls) {
+            if (confirm("Удалить?")) {
+                if(urls && urls.length > 0) { const names = urls.map(u => u.split('/').pop()); await sb.storage.from('product-photos').remove(names); }
+                await sb.from('products').delete().eq('id', id); loadData();
+            }
+        }
+        async function deleteSlide(id, imgUrl) {
+            if (confirm("Удалить слайд?")) {
+                if(imgUrl) { const name = imgUrl.split('/').pop(); await sb.storage.from('product-photos').remove([name]); }
+                await sb.from('slides').delete().eq('id', id); loadData();
+            }
+        }
+        async function deleteVideo(id, imgUrl) {
+                      if (confirm("Удалить видео?")) {
+                if(imgUrl) { const name = imgUrl.split('/').pop(); await sb.storage.from('product-photos').remove([name]); }
+                await sb.from('videos').delete().eq('id', id); loadData();
+            }
+        }
+        async function deleteProject(id, imgUrl) {
+            if (confirm("Удалить проект?")) {
+                if(imgUrl) { const name = imgUrl.split('/').pop(); await sb.storage.from('product-photos').remove([name]); }
+                await sb.from('projects').delete().eq('id', id); loadData();
+            }
+        }
+        async function deletePromo(id) {
+            if (confirm("Удалить промокод?")) { await sb.from('promocodes').delete().eq('id', id); loadData(); }
+        }
+
+        async function saveProduct() {
+            const btn = document.getElementById('btn-save-prod');
+            btn.disabled = true; btn.innerText = 'Сохранение...';
+            try {
+                const id = document.getElementById('p-id').value;
+                const name = document.getElementById('p-name').value;
+                const category = document.getElementById('p-category').value;
+                const price = document.getElementById('p-price').value;
+                const desc = document.getElementById('p-desc').value;
+                const specs = getData('specs-container', ['label','value']);
+                const engines = getData('eng-container', ['name','price','desc']);
+                const options = getData('opt-container', ['name','price','desc']);
+                const files = document.getElementById('p-img').files;
+                if(!name || !price) { alert("Заполните название и цену!"); return; }
+                let gallery = [];
+                              if (id && files.length === 0) {
+                    const { data: existing } = await sb.from('products').select('gallery').eq('id', id).single();
+                    gallery = existing.gallery || [];
+                } else {
+                    document.getElementById('img-status').innerText = 'Загрузка фото...';
+                    for (let i = 0; i < files.length; i++) {
+                        const comp = await compressImage(files[i]);
+                        const fName = `prod_${Date.now()}_${i}.webp`;
+                        await sb.storage.from('product-photos').upload(fName, comp);
+                        gallery.push(sb.storage.from('product-photos').getPublicUrl(fName).data.publicUrl);
+                    }
+                }
+                const payload = { name, category, price: parseFloat(price), description: desc, specs, engines, options, gallery };
+                if (id) { await sb.from('products').update(payload).eq('id', id); alert("Обновлено!"); }
+                else { await sb.from('products').insert([payload]); alert("Добавлено!"); }
+                localStorage.removeItem('cache_products');
+                resetForm(); loadData();
+            } catch (e) { alert("Ошибка: " + e.message); }
+            finally { btn.disabled = false; btn.innerText = 'Сохранить'; }
+        }
+
+        async function saveVideo() {
+            const btn = document.getElementById('btn-save-vid');
+            btn.disabled = true; btn.innerText = 'Сохранение...';
+            try {
+                const title = document.getElementById('v-title').value;
+                const url = document.getElementById('v-url').value;
+                const file = document.getElementById('v-img').files[0];
+                if(!url) { alert("Вставьте ссылку на видео!"); return; }
+                let imgUrl = '';
+                      if (file) {
+                    const comp = await compressImage(file);
+                    const fName = `vid_${Date.now()}.webp`;
+                    await sb.storage.from('product-photos').upload(fName, comp);
+                    imgUrl = sb.storage.from('product-photos').getPublicUrl(fName).data.publicUrl;
+                }
+                await sb.from('videos').insert([{ title, url, img_url: imgUrl }]);
+                localStorage.removeItem('cache_videos');
+                alert("Видео добавлено!");
+                document.getElementById('v-title').value = ''; document.getElementById('v-url').value = ''; document.getElementById('v-img').value = '';
+                loadData();
+            } catch (e) { alert("Ошибка: " + e.message); }
+            finally { btn.disabled = false; btn.innerText = 'Загрузить видео'; }
+        }
+
+        async function saveSlide() {
+            const btn = document.getElementById('btn-save-slide');
+            btn.disabled = true; btn.innerText = 'Сохранение...';
+            try {
+                const title = document.getElementById('s-title').value;
+                const subtitle = document.getElementById('s-subtitle').value;
+                const btnText = document.getElementById('s-btn').value;
+                const btnLink = document.getElementById('s-link').value;
+                const file = document.getElementById('s-img').files[0];
+                if(!file) { alert("Выберите фото для слайда!"); return; }
+                const comp = await compressImage(file);
+                const fName = `slide_${Date.now()}.webp`;
+                await sb.storage.from('product-photos').upload(fName, comp);
+                const imgUrl = sb.storage.from('product-photos').getPublicUrl(fName).data.publicUrl;
+                await sb.from('slides').insert([{ title, subtitle, button_text: btnText, button_link: btnLink, image_url: imgUrl }]);
+                              localStorage.removeItem('cache_slides');
+                alert("Слайд добавлен!");
+                document.getElementById('s-title').value = ''; document.getElementById('s-subtitle').value = ''; document.getElementById('s-btn').value = '';
+                loadData();
+            } catch (e) { alert("Ошибка: " + e.message); }
+            finally { btn.disabled = false; btn.innerText = 'Загрузить слайд'; }
+        }
+
+        async function saveProject() {
+            const btn = document.getElementById('btn-save-pr');
+            btn.disabled = true; btn.innerText = 'Сохранение...';
+            try {
+                const title = document.getElementById('pr-title').value;
+                const desc = document.getElementById('pr-desc').value;
+                const file = document.getElementById('pr-img').files[0];
+                if(!file || !title) { alert("Заполните название и выберите фото!"); return; }
+                const comp = await compressImage(file);
+                const fName = `pr_${Date.now()}.webp`;
+                await sb.storage.from('product-photos').upload(fName, comp);
+                const imgUrl = sb.storage.from('product-photos').getPublicUrl(fName).data.publicUrl;
+                await sb.from('projects').insert([{ title, description: desc, image_url: imgUrl }]);
+                localStorage.removeItem('cache_projects');
+                alert("Проект добавлен!");
+                document.getElementById('pr-title').value = ''; document.getElementById('pr-desc').value = ''; document.getElementById('pr-img').value = '';
+                loadData();
+            } catch (e) { alert("Ошибка: " + e.message); }
+            finally { btn.disabled = false; btn.innerText = 'Загрузить проект'; }
+        }
+
+        async function saveCompanyInfo() {
+                  const btn = document.getElementById('btn-save-ci');
+            btn.disabled = true; btn.innerText = 'Сохранение...';
+            try {
+                const payload = {
+                    block1_title: document.getElementById('ci-b1-title').value,
+                    block1_text: document.getElementById('ci-b1-text').value,
+                    block2_title: document.getElementById('ci-b2-title').value,
+                    block2_text: document.getElementById('ci-b2-text').value,
+                    block3_title: document.getElementById('ci-b3-title').value,
+                    block3_text: document.getElementById('ci-b3-text').value,
+                    calc_initial: parseInt(document.getElementById('ci-calc-initial').value) || 20,
+                    calc_rate: parseInt(document.getElementById('ci-calc-rate').value) || 15,
+                    calc_term: parseInt(document.getElementById('ci-calc-term').value) || 36,
+                };
+                await sb.from('company_info').update(payload).eq('id', 1);
+                localStorage.removeItem('cache_company');
+                alert("Информация обновлена!");
+            } catch (e) { alert("Ошибка: " + e.message); }
+            finally { btn.disabled = false; btn.innerText = 'Сохранить'; }
+        }
+
+        async function addPromo() {
+            const code = document.getElementById('promo-code').value.trim().toUpperCase();
+            const discount = parseInt(document.getElementById('promo-discount').value);
+            if(!code || !discount) { alert("Заполните код и процент скидки"); return; }
+            const { error } = await sb.from('promocodes').insert([{ code, discount_percent: discount, is_active: true }]);
+            if (error) { alert("Ошибка: " + error.message); }
+            else {
+                alert("Промокод добавлен!");
+                document.getElementById('promo-code').value = ''; document.getElementById('promo-discount').value = '';
+                              loadData();
+            }
+        }
+
+        checkInitialAuth();
+    </script>
+</body>
+</html>
